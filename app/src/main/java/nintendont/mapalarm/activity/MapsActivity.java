@@ -1,6 +1,9 @@
 package nintendont.mapalarm.activity;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -30,22 +33,31 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 import nintendont.mapalarm.R;
+import nintendont.mapalarm.services.LocationService;
+import nintendont.mapalarm.utils.Constants;
 
 public class MapsActivity extends FragmentActivity implements
         OnMapReadyCallback,
+        GoogleMap.OnMapLongClickListener,
         GoogleApiClient.ConnectionCallbacks ,
         GoogleApiClient.OnConnectionFailedListener,
         LocationListener {
 
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 2711;
     public static final int DEFAULT_ZOOM = 14;
+    public static final int ONE_SECOND = 1000;
+    public static final int HALF_MINUTE = 30 * ONE_SECOND;
+    public static final int FIVE_SECONDS = 5 * ONE_SECOND;
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
+    private Marker userSelection;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,8 +69,21 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     @Override
+    protected void onPause(){
+        super.onPause();
+        // save last location to memory
+    }
+
+    @Override
+    protected void onResume(){
+        super.onResume();
+        // recover last location from memory
+    }
+
+    @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setOnMapLongClickListener(this);
         //Initialize Google Play Services
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -74,17 +99,19 @@ public class MapsActivity extends FragmentActivity implements
     @Override
     public void onLocationChanged(Location location) {
         //toast("Location Changed");
-        zoomToLocation(location);
+        zoomTo(location);
     }
 
-    private void zoomToLocation(Location myLocation){
-        mLastLocation = myLocation;
-        LatLng myLocationCoords = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(myLocationCoords));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(DEFAULT_ZOOM));
-        //stop location updates
-        if (mGoogleApiClient != null) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+    private void zoomTo(Location myLocation){
+        if(myLocation != null){
+            mLastLocation = myLocation;
+            LatLng myLocationCoords = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(myLocationCoords));
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(DEFAULT_ZOOM));
+            //stop location updates
+            if (mGoogleApiClient != null) {
+                LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+            }
         }
     }
 
@@ -95,18 +122,30 @@ public class MapsActivity extends FragmentActivity implements
                 .addApi(LocationServices.API)
                 .build();
         mGoogleApiClient.connect();
-        locationChecker(mGoogleApiClient, MapsActivity.this);
     }
 
     @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(1000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+    public void onMapLongClick(LatLng desiredPosition) {
+        if(userSelection != null){
+            userSelection.remove();
         }
+
+        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title("My Location"));
+        Intent serviceIntent = new Intent(MapsActivity.this, LocationService.class);
+        serviceIntent.setAction(Constants.ACTION.STARTFOREGROUND_ACTION);
+
+        Bundle extras = new Bundle();
+        double lat = desiredPosition.latitude;
+        double lon = desiredPosition.longitude;
+        extras.putDouble("latitude", lat);
+        extras.putDouble("longitude", lon);
+        serviceIntent.putExtras(extras);
+
+        if(isMyServiceRunning(LocationService.class)){
+            stopService(serviceIntent);
+        }
+
+        startService(serviceIntent);
     }
 
     public boolean checkLocationPermission(){
@@ -126,18 +165,26 @@ public class MapsActivity extends FragmentActivity implements
         return false;
     }
 
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(HALF_MINUTE);
+        mLocationRequest.setFastestInterval(FIVE_SECONDS);
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+        locationChecker(MapsActivity.this);
+    }
+
     /**
      * Prompt user to enable GPS and Location Services
-     * @param mGoogleApiClient
      * @param activity
      */
-    public void locationChecker(GoogleApiClient mGoogleApiClient, final Activity activity) {
-        LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(30 * 1000);
-        locationRequest.setFastestInterval(5 * 1000);
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
-
+    public void locationChecker(final Activity activity) {
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(mLocationRequest);
         builder.setAlwaysShow(true);
         PendingResult<LocationSettingsResult> result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
 
@@ -157,7 +204,7 @@ public class MapsActivity extends FragmentActivity implements
                         try {
                             // Show the dialog by calling startResolutionForResult(),
                             // and check the result in onActivityResult().
-                            status.startResolutionForResult(activity, 1000);
+                            status.startResolutionForResult(activity, ONE_SECOND);
                         } catch (IntentSender.SendIntentException e) {
                             // Ignore the error.
                         }
@@ -193,6 +240,20 @@ public class MapsActivity extends FragmentActivity implements
         }
     }
 
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void toast(String message){
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
+
     @Override
     public void onConnectionSuspended(int i) {
 
@@ -201,9 +262,5 @@ public class MapsActivity extends FragmentActivity implements
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
-    }
-
-    private void toast(String message){
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 }
