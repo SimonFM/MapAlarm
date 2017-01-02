@@ -1,7 +1,9 @@
 package nintendont.mapalarm.activity;
 
 import android.app.Activity;
-import android.app.ActivityManager;
+import android.app.AlarmManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -14,6 +16,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.widget.SeekBar;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -37,6 +40,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import nintendont.mapalarm.R;
+import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.services.LocationService;
 import nintendont.mapalarm.utils.Constants;
 
@@ -52,12 +56,16 @@ public class MapsActivity extends FragmentActivity implements
     public static final int ONE_SECOND = 1000;
     public static final int HALF_MINUTE = 30 * ONE_SECOND;
     public static final int FIVE_SECONDS = 5 * ONE_SECOND;
+    public static final int ALARM_THRESHOLD = 50;
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
+    private LatLng desiredPosition;
     private Marker userSelection;
+    private AlarmManager alarmManager;
+    private SeekBar seekBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,6 +74,42 @@ public class MapsActivity extends FragmentActivity implements
         checkLocationPermission();
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        seekBar = (SeekBar) findViewById(R.id.seek_bar);
+        setupAlarmSwitch();
+    }
+
+    private void setupAlarmSwitch() {
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+                if (seekBar.getProgress() > ALARM_THRESHOLD && desiredPosition != null) {
+                    cancelAlarm(); // stop alarm receiver
+                    Intent serviceIntent = makeServiceIntent(desiredPosition);
+                    stopService(serviceIntent);// stop current service
+                    enableAlarm(desiredPosition); // start alarm receiver
+                    toast("Alarm On!");
+                    seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
+                } else if(seekBar.getProgress() <= ALARM_THRESHOLD && desiredPosition != null){
+                    cancelAlarm(); // stop alarm receiver
+                    Intent serviceIntent = makeServiceIntent(desiredPosition);
+                    stopService(serviceIntent);// stop current service
+
+                    if(userSelection != null){
+                        userSelection.remove();
+                    }
+                    toast("Alarm Off!");
+                    seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {}
+
+        });
     }
 
     @Override
@@ -129,23 +173,57 @@ public class MapsActivity extends FragmentActivity implements
         if(userSelection != null){
             userSelection.remove();
         }
+        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title("Your Destination"));
+        this.desiredPosition = desiredPosition;
+    }
 
-        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title("My Location"));
+
+
+    private void enableAlarm(LatLng desiredPosition) {
+        Intent resultIntent = getReceiverIntent(desiredPosition); //start the update alarm manager
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        alarmManager.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, 0,  HALF_MINUTE, pendingIntent);
+        //toast("Alarm On");
+    }
+
+    private void cancelAlarm() {
+        alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(getBaseContext(), LocationService.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        alarmManager.cancel(pendingIntent);
+        removeNotification();
+        //toast("Alarm Off");
+    }
+
+    private void removeNotification() {
+        NotificationManager nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        nMgr.cancel(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE);
+    }
+
+    @NonNull
+    private Intent getReceiverIntent(LatLng desiredPosition) {
+        Intent receiverIntent = new Intent(this, LocationReceiver.class);
+        makeIntent(receiverIntent, desiredPosition);
+        return receiverIntent;
+    }
+
+    @NonNull
+    private Intent makeServiceIntent(LatLng desiredPosition) {
         Intent serviceIntent = new Intent(MapsActivity.this, LocationService.class);
         serviceIntent.setAction(Constants.ACTION.STARTFOREGROUND_ACTION);
+        makeIntent(serviceIntent, desiredPosition);
+        return serviceIntent;
+    }
 
+    private Intent makeIntent(Intent intent, LatLng desiredPosition){
         Bundle extras = new Bundle();
         double lat = desiredPosition.latitude;
         double lon = desiredPosition.longitude;
         extras.putDouble("latitude", lat);
         extras.putDouble("longitude", lon);
-        serviceIntent.putExtras(extras);
-
-        if(isMyServiceRunning(LocationService.class)){
-            stopService(serviceIntent);
-        }
-
-        startService(serviceIntent);
+        intent.putExtras(extras);
+        return intent;
     }
 
     public boolean checkLocationPermission(){
@@ -164,7 +242,6 @@ public class MapsActivity extends FragmentActivity implements
         }
         return false;
     }
-
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
@@ -240,15 +317,7 @@ public class MapsActivity extends FragmentActivity implements
         }
     }
 
-    private boolean isMyServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                return true;
-            }
-        }
-        return false;
-    }
+
 
     private void toast(String message){
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();

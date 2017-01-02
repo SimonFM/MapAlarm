@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -28,6 +29,10 @@ public class LocationService extends Service {
     private static final float LOCATION_DISTANCE = 10f;
     private Location mDestination, mLastLocation;
     private NotificationManager mNotificationManager;
+    LocationListener[] mLocationListeners = new LocationListener[]{
+            new LocationListener(LocationManager.GPS_PROVIDER),
+            new LocationListener(LocationManager.NETWORK_PROVIDER)
+    };
 
     @Override
     public void onCreate() {
@@ -37,19 +42,14 @@ public class LocationService extends Service {
         initializeLocationManager();
         mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        try {
-            mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, mLocationListeners[1]);
-        } catch (java.lang.SecurityException ex) {
-            Log.i(TAG, "fail to request location update, ignore", ex);
-        } catch (IllegalArgumentException ex) {
-            Log.d(TAG, "network provider does not exist, " + ex.getMessage());
-        }
-        try {
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, mLocationListeners[0]);
-        } catch (java.lang.SecurityException ex) {
-            Log.i(TAG, "fail to request location update, ignore", ex);
-        } catch (IllegalArgumentException ex) {
-            Log.d(TAG, "gps provider does not exist " + ex.getMessage());
+        for(LocationListener listener : mLocationListeners){
+            try {
+                mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_INTERVAL, LOCATION_DISTANCE, listener);
+            } catch (java.lang.SecurityException ex) {
+                Log.i(TAG, "fail to request location update, ignore", ex);
+            } catch (IllegalArgumentException ex) {
+                Log.d(TAG, "network provider does not exist, " + ex.getMessage());
+            }
         }
     }
 
@@ -62,9 +62,13 @@ public class LocationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.e(TAG, "onStartCommand");
         super.onStartCommand(intent, flags, startId);
-        if (intent.getAction().equals(Constants.ACTION.STARTFOREGROUND_ACTION)) {
-            double lat = intent.getDoubleExtra("latitude", 0);
-            double lon = intent.getDoubleExtra("longitude", 0);
+        String action = intent.getAction();
+        if(action == null){
+            Log.e (TAG, action + " was null, flags=" + flags + " bits=" + Integer.toBinaryString (flags));
+        } else if (action.equals(Constants.ACTION.STARTFOREGROUND_ACTION)) {
+            Bundle extras = intent.getExtras();
+            double lat = extras.getDouble("latitude", 0);
+            double lon = extras.getDouble("longitude", 0);
             mDestination = createNewLocation(lat, lon);
             //toast("Starting Service");
 
@@ -73,7 +77,7 @@ public class LocationService extends Service {
             Notification notification = getNotification(distance);
 
             startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
-        } else if(intent.getAction().equals(Constants.ACTION.STOPFOREGROUND_ACTION)){
+        } else if(action.equals(Constants.ACTION.STOPFOREGROUND_ACTION)){
             stopForeground(true);
         }
         return START_STICKY;
@@ -159,9 +163,4 @@ public class LocationService extends Service {
             Log.e(TAG, "onStatusChanged: " + provider);
         }
     }
-
-    LocationListener[] mLocationListeners = new LocationListener[]{
-            new LocationListener(LocationManager.GPS_PROVIDER),
-            new LocationListener(LocationManager.NETWORK_PROVIDER)
-    };
 }

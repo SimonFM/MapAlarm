@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="nintendont.mapalarm">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="nintendont.mapalarm">
 
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
@@ -28,10 +28,20 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name="nintendont.mapalarm.receivers.LocationReceiver"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="nintendont.receivers.android.action.broadcast"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name="nintendont.mapalarm.services.LocationService"
             android:enabled="true"
-            android:exported="false"></service>
+            android:exported="false">
+        </service>
     </application>
 
 </manifest>
