@@ -57,6 +57,7 @@ public class MapsActivity extends FragmentActivity implements
     public static final int HALF_MINUTE = 30 * ONE_SECOND;
     public static final int FIVE_SECONDS = 5 * ONE_SECOND;
     public static final int ALARM_THRESHOLD = 50;
+    public static final String YOUR_DESTINATION = "Your Destination";
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
@@ -66,6 +67,7 @@ public class MapsActivity extends FragmentActivity implements
     private Marker userSelection;
     private AlarmManager alarmManager;
     private SeekBar seekBar;
+    private NotificationManager nMgr;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +77,7 @@ public class MapsActivity extends FragmentActivity implements
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         seekBar = (SeekBar) findViewById(R.id.seek_bar);
+        nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         setupAlarmSwitch();
     }
 
@@ -97,6 +100,8 @@ public class MapsActivity extends FragmentActivity implements
 
                     if(userSelection != null){
                         userSelection.remove();
+                        userSelection = null;
+                        desiredPosition = null;
                     }
                     toast("Alarm Off!");
                     seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
@@ -173,7 +178,7 @@ public class MapsActivity extends FragmentActivity implements
         if(userSelection != null){
             userSelection.remove();
         }
-        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title("Your Destination"));
+        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title(YOUR_DESTINATION));
         this.desiredPosition = desiredPosition;
     }
 
@@ -189,7 +194,7 @@ public class MapsActivity extends FragmentActivity implements
 
     private void cancelAlarm() {
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(getBaseContext(), LocationService.class);
+        Intent intent = getReceiverIntent(desiredPosition);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         alarmManager.cancel(pendingIntent);
         removeNotification();
@@ -197,7 +202,6 @@ public class MapsActivity extends FragmentActivity implements
     }
 
     private void removeNotification() {
-        NotificationManager nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         nMgr.cancel(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE);
     }
 
