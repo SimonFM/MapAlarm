@@ -33,6 +33,7 @@ import nintendont.mapalarm.utils.Constants;
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SERVICE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SET;
+import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
@@ -40,7 +41,7 @@ import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
 
 public class LocationService extends Service {
     private static final String TAG = "MapAlarm";
-    public static final int KILOMETRE = 1000;
+
     private LocationManager mLocationManager = null;
     private static final int LOCATION_INTERVAL = 1000;
     private static final float LOCATION_DISTANCE = 10f;
@@ -89,9 +90,7 @@ public class LocationService extends Service {
             double lon = extras.getDouble(LONGITUDE, 0);
             mDestination = createNewLocation(lat, lon);
             //toast("Starting Service");
-            float[] results = new float[1];
-            Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), mDestination.getLatitude(), mDestination.getLongitude(), results);
-
+            float[] results = distance();
             Notification notification = getNotification(results[0]);
             if(notification.sound == null){
                 startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
@@ -108,12 +107,17 @@ public class LocationService extends Service {
         return START_STICKY;
     }
 
+    private float[] distance() {
+        float[] results = new float[1];
+        Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), mDestination.getLatitude(), mDestination.getLongitude(), results);
+        return results;
+    }
+
     private void deleteSharedPreferences() {
         SharedPreferences.Editor settingsEditor = settings.edit();
         settingsEditor.remove(LONGITUDE_KEY);
         settingsEditor.remove(LATITUDE_KEY);
-        settingsEditor.putBoolean(AlARM_SET, false);
-       // settingsEditor.putBoolean(AlARM_SERVICE, false);
+        settingsEditor.putBoolean(AlARM_SERVICE, true);
         settingsEditor.apply();
     }
 
@@ -136,7 +140,7 @@ public class LocationService extends Service {
             int rgbaColour = Color.argb(255, 183, 3, 1);
             builder.setLights(rgbaColour, 2000, 1000);
         } else {
-            //saveServiceAlarm();
+            saveServiceAlarm();
             builder.setContentText("Distance : "+ distance + "m");
             builder.setOngoing(true);
         }

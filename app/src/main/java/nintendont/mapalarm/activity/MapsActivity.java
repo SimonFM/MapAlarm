@@ -18,6 +18,8 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.view.View;
+import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
@@ -48,6 +50,7 @@ import nintendont.mapalarm.utils.Constants;
 
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SET;
+import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
@@ -82,6 +85,7 @@ public class MapsActivity extends FragmentActivity implements
     private SeekBar seekBar;
     private NotificationManager nMgr;
     private SharedPreferences settings;
+    private Button undo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +97,19 @@ public class MapsActivity extends FragmentActivity implements
         nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         settings = this.getSharedPreferences(APP_PACKAGE_REFERENCE, Context.MODE_PRIVATE);
         setupAlarmSwitch();
+       // setupUndoButton();
+    }
+
+    private void setupUndoButton() {
+//        undo = (Button) findViewById(R.id.button2);
+//        undo.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if(!alarmSet){
+//                    removeUserMarker();
+//                }
+//            }
+//        });
     }
 
     private void setupAlarmSwitch() {
@@ -102,14 +119,14 @@ public class MapsActivity extends FragmentActivity implements
             public void onStopTrackingTouch(SeekBar seekBar) {
                 int progress = seekBar.getProgress();
                 //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
-                if (progress > ALARM_THRESHOLD && desiredPosition != null && !alarmSet) {
+                if (alarmOn(progress)) {
                     cancelAlarm(); // stop alarm receiver
                     Intent serviceIntent = makeServiceIntent(desiredPosition);
                     stopService(serviceIntent);// stop current service
                     enableAlarm(desiredPosition); // start alarm receiver
                     toast("Alarm On!");
                     seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
-                } else if(progress <= ALARM_THRESHOLD && desiredPosition != null && alarmSet){
+                } else if(alarmOff(progress)){
                     cancelAlarm(); // stop alarm receiver
                     Intent serviceIntent = makeServiceIntent(desiredPosition);
                     stopService(serviceIntent);// stop current service
@@ -129,10 +146,35 @@ public class MapsActivity extends FragmentActivity implements
         });
     }
 
+    private boolean alarmOff(int progress) {
+        return progress <= ALARM_THRESHOLD && desiredPosition != null && alarmSet && distance();
+    }
+
+    private boolean alarmOn(int progress) {
+        distance();
+        return progress > ALARM_THRESHOLD && desiredPosition != null && !alarmSet && distance();
+    }
+
     private void removeUserMarker() {
         if(userSelection != null){
             userSelection.remove();
         }
+    }
+
+    private boolean distance() {
+        float[] results = new float[1];
+        if(mLastLocation != null && desiredPosition != null){
+            Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), desiredPosition.latitude, desiredPosition.longitude, results);
+        } else {
+            toast("Select a destination by holding down on the map");
+        }
+        boolean withinRange = results[0] > KILOMETRE;
+        if(!withinRange){
+            toast("Select a destination further than 1km away");
+            removeUserMarker();
+            seekBar.setProgress(ALARMBAR_OFF);
+        }
+        return withinRange;
     }
 
     private void deleteSharedPreferences() {
@@ -172,9 +214,10 @@ public class MapsActivity extends FragmentActivity implements
     // save last location to memory
     private void saveUserSelection() {
         Editor settingsEditor = settings.edit();
-        //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
-        if (alarmSet){// && alarmServiceSet){
+        boolean alarmWasActivated = settings.getBoolean(ALARM_SERVICE, false);
+        if (alarmSet){
             settingsEditor.putBoolean(AlARM_SET, true);
+            settingsEditor.putBoolean(ALARM_SERVICE, false);
             String lat = Double.toString(desiredPosition.latitude);
             String lon = Double.toString(desiredPosition.longitude);
             settingsEditor.putString(LONGITUDE_KEY, lon);

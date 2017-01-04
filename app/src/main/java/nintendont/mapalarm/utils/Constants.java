@@ -19,6 +19,9 @@ public class Constants {
     public static final String LATITUDE = LOCATION_KEY.concat(".latitude");
     public static final String LONGITUDE = LOCATION_KEY.concat(".longitude");
 
+    //Values
+    public static final int KILOMETRE = 1000;
+
     public interface ACTION {
         String STARTFOREGROUND_ACTION = "nintendont.foregroundservice.action.startforeground";
         String STOPFOREGROUND_ACTION = "nintendont.foregroundservice.action.stopforeground";
