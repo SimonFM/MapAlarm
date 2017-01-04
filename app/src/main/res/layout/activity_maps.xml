@@ -34,7 +34,8 @@
             android:progressDrawable="@android:color/transparent"
             android:thumb="@drawable/ic_audiotrack"
             android:layout_centerVertical="true"
-            android:layout_alignParentStart="true" />
+            android:layout_marginLeft="50dp"
+            android:layout_marginRight="50dp" />
     </RelativeLayout>
 
 </RelativeLayout>

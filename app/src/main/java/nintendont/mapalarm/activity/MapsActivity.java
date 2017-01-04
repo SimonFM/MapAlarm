@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -44,6 +46,14 @@ import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.services.LocationService;
 import nintendont.mapalarm.utils.Constants;
 
+import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
+import static nintendont.mapalarm.utils.Constants.AlARM_SET;
+import static nintendont.mapalarm.utils.Constants.LATITUDE;
+import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
+import static nintendont.mapalarm.utils.Constants.LONGITUDE;
+import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
+import static nintendont.mapalarm.utils.Constants.YOUR_DESTINATION;
+
 public class MapsActivity extends FragmentActivity implements
         OnMapReadyCallback,
         GoogleMap.OnMapLongClickListener,
@@ -57,7 +67,10 @@ public class MapsActivity extends FragmentActivity implements
     public static final int HALF_MINUTE = 30 * ONE_SECOND;
     public static final int FIVE_SECONDS = 5 * ONE_SECOND;
     public static final int ALARM_THRESHOLD = 50;
-    public static final String YOUR_DESTINATION = "Your Destination";
+    public static final int ALARMBAR_ON = 75;
+    public static final int ALARMBAR_OFF = 0;
+
+    private boolean alarmSet;
 
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
@@ -68,6 +81,7 @@ public class MapsActivity extends FragmentActivity implements
     private AlarmManager alarmManager;
     private SeekBar seekBar;
     private NotificationManager nMgr;
+    private SharedPreferences settings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,33 +90,31 @@ public class MapsActivity extends FragmentActivity implements
         checkLocationPermission();
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-        seekBar = (SeekBar) findViewById(R.id.seek_bar);
         nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        settings = this.getSharedPreferences(APP_PACKAGE_REFERENCE, Context.MODE_PRIVATE);
         setupAlarmSwitch();
     }
 
     private void setupAlarmSwitch() {
+        seekBar = (SeekBar) findViewById(R.id.seek_bar);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-
-                if (seekBar.getProgress() > ALARM_THRESHOLD && desiredPosition != null) {
+                int progress = seekBar.getProgress();
+                //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+                if (progress > ALARM_THRESHOLD && desiredPosition != null && !alarmSet) {
                     cancelAlarm(); // stop alarm receiver
                     Intent serviceIntent = makeServiceIntent(desiredPosition);
                     stopService(serviceIntent);// stop current service
                     enableAlarm(desiredPosition); // start alarm receiver
                     toast("Alarm On!");
                     seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
-                } else if(seekBar.getProgress() <= ALARM_THRESHOLD && desiredPosition != null){
+                } else if(progress <= ALARM_THRESHOLD && desiredPosition != null && alarmSet){
                     cancelAlarm(); // stop alarm receiver
                     Intent serviceIntent = makeServiceIntent(desiredPosition);
                     stopService(serviceIntent);// stop current service
-
-                    if(userSelection != null){
-                        userSelection.remove();
-                        userSelection = null;
-                        desiredPosition = null;
-                    }
+                    removeUserMarker();
+                    deleteSharedPreferences();
                     toast("Alarm Off!");
                     seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
                 }
@@ -117,16 +129,70 @@ public class MapsActivity extends FragmentActivity implements
         });
     }
 
+    private void removeUserMarker() {
+        if(userSelection != null){
+            userSelection.remove();
+        }
+    }
+
+    private void deleteSharedPreferences() {
+        Editor settingsEditor = settings.edit();
+        settingsEditor.remove(LONGITUDE_KEY);
+        settingsEditor.remove(LATITUDE_KEY);
+        settingsEditor.putBoolean(AlARM_SET, false);
+        settingsEditor.apply();
+    }
+
     @Override
     protected void onPause(){
         super.onPause();
-        // save last location to memory
+        //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+        // if there's an alarm set. Save position, otherwise remove user preferences
+        if(alarmSet){// && !alarmServiceSet) {
+            saveUserSelection();
+        } else {
+            removeUserMarker();
+        }
     }
 
     @Override
     protected void onResume(){
         super.onResume();
-        // recover last location from memory
+        recoverLastUserLocation();
+//        boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+        if(alarmSet){// && alarmServiceSet){
+            seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
+            seekBar.setProgress(ALARMBAR_ON);
+        } else {
+            seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
+            seekBar.setProgress(ALARMBAR_OFF);
+        }
+    }
+
+    // save last location to memory
+    private void saveUserSelection() {
+        Editor settingsEditor = settings.edit();
+        //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+        if (alarmSet){// && alarmServiceSet){
+            settingsEditor.putBoolean(AlARM_SET, true);
+            String lat = Double.toString(desiredPosition.latitude);
+            String lon = Double.toString(desiredPosition.longitude);
+            settingsEditor.putString(LONGITUDE_KEY, lon);
+            settingsEditor.putString(LATITUDE_KEY, lat);
+        }
+        settingsEditor.apply();
+    }
+
+    private void recoverLastUserLocation() {
+        String savedLat = settings.getString(LATITUDE_KEY, "");
+        String savedLon = settings.getString(LONGITUDE_KEY, "");
+
+        if(!savedLat.isEmpty() && !savedLon.isEmpty()){
+            double lat = Double.parseDouble(savedLat);
+            double lon = Double.parseDouble(savedLon);
+            desiredPosition = new LatLng(lat, lon);
+            alarmSet = settings.getBoolean(AlARM_SET, false);
+        }
     }
 
     @Override
@@ -142,6 +208,11 @@ public class MapsActivity extends FragmentActivity implements
         } else {
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
+        }
+
+        //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+        if(alarmSet){// && alarmServiceSet){
+            addUserDestinationToMap(desiredPosition);
         }
     }
 
@@ -175,29 +246,35 @@ public class MapsActivity extends FragmentActivity implements
 
     @Override
     public void onMapLongClick(LatLng desiredPosition) {
+        addUserDestinationToMap(desiredPosition);
+        this.desiredPosition = desiredPosition;
+    }
+
+    private void addUserDestinationToMap(LatLng desiredPosition) {
         if(userSelection != null){
             userSelection.remove();
         }
         userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title(YOUR_DESTINATION));
-        this.desiredPosition = desiredPosition;
     }
-
-
 
     private void enableAlarm(LatLng desiredPosition) {
         Intent resultIntent = getReceiverIntent(desiredPosition); //start the update alarm manager
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         alarmManager.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, 0,  HALF_MINUTE, pendingIntent);
+        alarmSet = true;
         //toast("Alarm On");
     }
 
     private void cancelAlarm() {
+        // Cancel Existing alarm
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = getReceiverIntent(desiredPosition);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         alarmManager.cancel(pendingIntent);
         removeNotification();
+        alarmSet = false;
+        // remove from sharedPreferences
         //toast("Alarm Off");
     }
 
@@ -207,7 +284,8 @@ public class MapsActivity extends FragmentActivity implements
 
     @NonNull
     private Intent getReceiverIntent(LatLng desiredPosition) {
-        Intent receiverIntent = new Intent(this, LocationReceiver.class);
+        Intent receiverIntent = new Intent();
+        receiverIntent.setClass(this, LocationReceiver.class);
         makeIntent(receiverIntent, desiredPosition);
         return receiverIntent;
     }
@@ -224,8 +302,8 @@ public class MapsActivity extends FragmentActivity implements
         Bundle extras = new Bundle();
         double lat = desiredPosition.latitude;
         double lon = desiredPosition.longitude;
-        extras.putDouble("latitude", lat);
-        extras.putDouble("longitude", lon);
+        extras.putDouble(LATITUDE, lat);
+        extras.putDouble(LONGITUDE, lon);
         intent.putExtras(extras);
         return intent;
     }
@@ -320,8 +398,6 @@ public class MapsActivity extends FragmentActivity implements
             }
         }
     }
-
-
 
     private void toast(String message){
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();

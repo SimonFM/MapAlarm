@@ -9,11 +9,15 @@ import android.support.annotation.NonNull;
 import nintendont.mapalarm.services.LocationService;
 import nintendont.mapalarm.utils.Constants;
 
+import static nintendont.mapalarm.utils.Constants.LATITUDE;
+import static nintendont.mapalarm.utils.Constants.LONGITUDE;
+
 /**
  * Created by simon on 29/12/2016.
  */
 
 public class LocationReceiver extends BroadcastReceiver {
+
     @Override
     public void onReceive(Context context, Intent intent) {
         Intent serviceIntent = makeLocationServiceIntent(context, intent);
@@ -25,12 +29,12 @@ public class LocationReceiver extends BroadcastReceiver {
         Intent serviceIntent = new Intent(context, LocationService.class);
 
         serviceIntent.setAction(Constants.ACTION.STARTFOREGROUND_ACTION);
-        double lat = intent.getDoubleExtra("latitude", 0);
-        double lon = intent.getDoubleExtra("longitude", 0);
+        double lat = intent.getDoubleExtra(LATITUDE, 0);
+        double lon = intent.getDoubleExtra(LONGITUDE, 0);
 
         Bundle extras = new Bundle();
-        extras.putDouble("latitude", lat);
-        extras.putDouble("longitude", lon);
+        extras.putDouble(LATITUDE, lat);
+        extras.putDouble(LONGITUDE, lon);
         serviceIntent.putExtras(extras);
         return serviceIntent;
     }
