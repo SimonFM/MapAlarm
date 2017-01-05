@@ -12,7 +12,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -30,18 +29,19 @@ import nintendont.mapalarm.R;
 import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.utils.Constants;
 
+import static com.google.android.gms.wearable.DataMap.TAG;
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SERVICE;
-import static nintendont.mapalarm.utils.Constants.AlARM_SET;
 import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
+import static nintendont.mapalarm.utils.Messages.ARRIVAL_MESSAGE;
+import static nintendont.mapalarm.utils.Messages.STOP_MESSAGE;
+import static nintendont.mapalarm.utils.Messages.TITLE;
 
 public class LocationService extends Service {
-    private static final String TAG = "MapAlarm";
-
     private LocationManager mLocationManager = null;
     private static final int LOCATION_INTERVAL = 1000;
     private static final float LOCATION_DISTANCE = 10f;
@@ -124,19 +124,19 @@ public class LocationService extends Service {
 
     private Notification getNotification(float distance) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-        builder.setContentTitle("Map Alarm");
-        builder.setTicker("Map Alarm");
+        builder.setContentTitle(TITLE);
+        builder.setTicker(TITLE);
         builder.setSmallIcon(R.drawable.ic_audiotrack);
 
         if(distance <= KILOMETRE){
             Intent stopSelf = new Intent(this, LocationService.class);
             stopSelf.setAction(Constants.ACTION.STOPFOREGROUND_ACTION);
             PendingIntent pStopSelf = PendingIntent.getService(this, 0, stopSelf, PendingIntent.FLAG_CANCEL_CURRENT);
-            builder.addAction(R.drawable.cast_ic_notification_stop_live_stream, "Stop", pStopSelf);
+            builder.addAction(R.drawable.cast_ic_notification_stop_live_stream, STOP_MESSAGE, pStopSelf);
 
             Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
             builder.setSound(uri);
-            builder.setContentText("You've Arrived!");
+            builder.setContentText(ARRIVAL_MESSAGE);
             int rgbaColour = Color.argb(255, 183, 3, 1);
             builder.setLights(rgbaColour, 2000, 1000);
         } else {

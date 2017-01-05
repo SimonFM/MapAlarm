@@ -18,7 +18,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
-import android.view.View;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.Toast;
@@ -48,14 +47,24 @@ import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.services.LocationService;
 import nintendont.mapalarm.utils.Constants;
 
+import static nintendont.mapalarm.utils.Constants.ALARMBAR_OFF;
+import static nintendont.mapalarm.utils.Constants.ALARMBAR_ON;
+import static nintendont.mapalarm.utils.Constants.ALARM_THRESHOLD;
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SET;
+import static nintendont.mapalarm.utils.Constants.DEFAULT_ZOOM;
+import static nintendont.mapalarm.utils.Constants.FIVE_SECONDS;
+import static nintendont.mapalarm.utils.Constants.HALF_MINUTE;
 import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
-import static nintendont.mapalarm.utils.Constants.YOUR_DESTINATION;
+import static nintendont.mapalarm.utils.Constants.MY_PERMISSIONS_REQUEST_LOCATION;
+import static nintendont.mapalarm.utils.Constants.ONE_SECOND;
+import static nintendont.mapalarm.utils.Messages.NO_DESTINATION_ERROR;
+import static nintendont.mapalarm.utils.Messages.TOO_CLOSE_ERROR;
+import static nintendont.mapalarm.utils.Messages.YOUR_DESTINATION;
 
 public class MapsActivity extends FragmentActivity implements
         OnMapReadyCallback,
@@ -63,15 +72,6 @@ public class MapsActivity extends FragmentActivity implements
         GoogleApiClient.ConnectionCallbacks ,
         GoogleApiClient.OnConnectionFailedListener,
         LocationListener {
-
-    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 2711;
-    public static final int DEFAULT_ZOOM = 14;
-    public static final int ONE_SECOND = 1000;
-    public static final int HALF_MINUTE = 30 * ONE_SECOND;
-    public static final int FIVE_SECONDS = 5 * ONE_SECOND;
-    public static final int ALARM_THRESHOLD = 50;
-    public static final int ALARMBAR_ON = 75;
-    public static final int ALARMBAR_OFF = 0;
 
     private boolean alarmSet;
 
@@ -85,7 +85,6 @@ public class MapsActivity extends FragmentActivity implements
     private SeekBar seekBar;
     private NotificationManager nMgr;
     private SharedPreferences settings;
-    private Button undo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -97,19 +96,6 @@ public class MapsActivity extends FragmentActivity implements
         nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         settings = this.getSharedPreferences(APP_PACKAGE_REFERENCE, Context.MODE_PRIVATE);
         setupAlarmSwitch();
-       // setupUndoButton();
-    }
-
-    private void setupUndoButton() {
-//        undo = (Button) findViewById(R.id.button2);
-//        undo.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                if(!alarmSet){
-//                    removeUserMarker();
-//                }
-//            }
-//        });
     }
 
     private void setupAlarmSwitch() {
@@ -146,45 +132,6 @@ public class MapsActivity extends FragmentActivity implements
         });
     }
 
-    private boolean alarmOff(int progress) {
-        return progress <= ALARM_THRESHOLD && desiredPosition != null && alarmSet && distance();
-    }
-
-    private boolean alarmOn(int progress) {
-        distance();
-        return progress > ALARM_THRESHOLD && desiredPosition != null && !alarmSet && distance();
-    }
-
-    private void removeUserMarker() {
-        if(userSelection != null){
-            userSelection.remove();
-        }
-    }
-
-    private boolean distance() {
-        float[] results = new float[1];
-        if(mLastLocation != null && desiredPosition != null){
-            Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), desiredPosition.latitude, desiredPosition.longitude, results);
-        } else {
-            toast("Select a destination by holding down on the map");
-        }
-        boolean withinRange = results[0] > KILOMETRE;
-        if(!withinRange){
-            toast("Select a destination further than 1km away");
-            removeUserMarker();
-            seekBar.setProgress(ALARMBAR_OFF);
-        }
-        return withinRange;
-    }
-
-    private void deleteSharedPreferences() {
-        Editor settingsEditor = settings.edit();
-        settingsEditor.remove(LONGITUDE_KEY);
-        settingsEditor.remove(LATITUDE_KEY);
-        settingsEditor.putBoolean(AlARM_SET, false);
-        settingsEditor.apply();
-    }
-
     @Override
     protected void onPause(){
         super.onPause();
@@ -214,7 +161,7 @@ public class MapsActivity extends FragmentActivity implements
     // save last location to memory
     private void saveUserSelection() {
         Editor settingsEditor = settings.edit();
-        boolean alarmWasActivated = settings.getBoolean(ALARM_SERVICE, false);
+        //boolean alarmWasActivated = settings.getBoolean(ALARM_SERVICE, false);
         if (alarmSet){
             settingsEditor.putBoolean(AlARM_SET, true);
             settingsEditor.putBoolean(ALARM_SERVICE, false);
@@ -341,6 +288,7 @@ public class MapsActivity extends FragmentActivity implements
         return serviceIntent;
     }
 
+    @NonNull
     private Intent makeIntent(Intent intent, LatLng desiredPosition){
         Bundle extras = new Bundle();
         double lat = desiredPosition.latitude;
@@ -418,6 +366,46 @@ public class MapsActivity extends FragmentActivity implements
                 }
             }
         });
+    }
+
+    private boolean alarmOff(int progress) {
+        return progress <= ALARM_THRESHOLD && desiredPosition != null && alarmSet && distance();
+    }
+
+    private boolean alarmOn(int progress) {
+        distance();
+        return progress > ALARM_THRESHOLD && desiredPosition != null && !alarmSet && distance();
+    }
+
+    private void removeUserMarker() {
+        if(userSelection != null){
+            userSelection.remove();
+        }
+        desiredPosition = null;
+    }
+
+    private boolean distance() {
+        float[] results = new float[1];
+        if(mLastLocation != null && desiredPosition != null){
+            Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), desiredPosition.latitude, desiredPosition.longitude, results);
+        } else {
+            toast(NO_DESTINATION_ERROR);
+        }
+        boolean withinRange = results[0] > KILOMETRE;
+        if(!withinRange){
+            toast(TOO_CLOSE_ERROR);
+            removeUserMarker();
+            seekBar.setProgress(ALARMBAR_OFF);
+        }
+        return withinRange;
+    }
+
+    private void deleteSharedPreferences() {
+        Editor settingsEditor = settings.edit();
+        settingsEditor.remove(LONGITUDE_KEY);
+        settingsEditor.remove(LATITUDE_KEY);
+        settingsEditor.putBoolean(AlARM_SET, false);
+        settingsEditor.apply();
     }
 
     @Override

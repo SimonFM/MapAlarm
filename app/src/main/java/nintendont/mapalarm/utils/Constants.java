@@ -5,7 +5,6 @@ package nintendont.mapalarm.utils;
  */
 
 public class Constants {
-    public static final String YOUR_DESTINATION = "Your Destination";
     public static final String APP_PACKAGE_REFERENCE = "nintendont.mapalarm";
     public static final String LOCATION_KEY = APP_PACKAGE_REFERENCE.concat(".location");
 
@@ -21,6 +20,14 @@ public class Constants {
 
     //Values
     public static final int KILOMETRE = 1000;
+    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 2711;
+    public static final int DEFAULT_ZOOM = 14;
+    public static final int ONE_SECOND = 1000;
+    public static final int HALF_MINUTE = 30 * ONE_SECOND;
+    public static final int FIVE_SECONDS = 5 * ONE_SECOND;
+    public static final int ALARM_THRESHOLD = 50;
+    public static final int ALARMBAR_ON = 75;
+    public static final int ALARMBAR_OFF = 0;
 
     public interface ACTION {
         String STARTFOREGROUND_ACTION = "nintendont.foregroundservice.action.startforeground";
