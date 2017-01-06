@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/map_relative_layout"
@@ -18,7 +19,7 @@
 
     <RelativeLayout
         android:layout_width="match_parent"
-        android:background="@color/cast_intro_overlay_button_background_color"
+        android:background="@color/colorPrimary"
         android:paddingLeft="20dp"
         android:paddingRight="20dp"
         android:layout_height="75dp"
