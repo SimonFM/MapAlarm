@@ -17,6 +17,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
@@ -37,6 +38,7 @@ import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
+import static nintendont.mapalarm.utils.Constants.TEST;
 import static nintendont.mapalarm.utils.Messages.ARRIVAL_MESSAGE;
 import static nintendont.mapalarm.utils.Messages.STOP_MESSAGE;
 import static nintendont.mapalarm.utils.Messages.TITLE;
@@ -91,20 +93,48 @@ public class LocationService extends Service {
             mDestination = createNewLocation(lat, lon);
             //toast("Starting Service");
             float[] results = distance();
-            Notification notification = getNotification(results[0]);
-            if(notification.sound == null){
-                startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
-            } else {
-                deleteSharedPreferences();
-                stopForeground(true);
-                removeNotification();
-                cancelAlarm();
-                mNotificationManager.notify(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
+            float distance = results[0];
+
+            if(distance >= TEST && distance > 0 && distance != 0){
+                Notification notification = getNotification(distance);
+                if(notification.sound == null){
+                    startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
+                } else {
+                    deleteSharedPreferences();
+                    stopForeground(true);
+                    removeNotification();
+                    cancelAlarm();
+                    notify(notification);
+                    this.stopSelf();
+                }
             }
+
+
+
         } else if(action.equals(Constants.ACTION.STOPFOREGROUND_ACTION)){
             stopForeground(true);
+            this.stopSelf();
         }
         return START_STICKY;
+    }
+
+    private void notify(Notification notification) {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean isScreenOn = pm.isInteractive();
+        Log.e("screen on.......", "" + isScreenOn);
+        if(!isScreenOn) {
+            PowerManager.WakeLock powerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK |
+                                                             PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                                                             PowerManager.ON_AFTER_RELEASE, "MapAlarmPowerLock");
+            powerLock.acquire(10000);
+            PowerManager.WakeLock cpuLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MapAlarmCpuLock");
+            cpuLock.acquire(10000);
+            mNotificationManager.notify(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
+            powerLock.release();
+            cpuLock.release();
+        } else {
+            mNotificationManager.notify(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
+        }
     }
 
     private float[] distance() {
@@ -126,29 +156,30 @@ public class LocationService extends Service {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder.setContentTitle(TITLE);
         builder.setTicker(TITLE);
-        builder.setSmallIcon(R.drawable.ic_audiotrack);
 
-        if(distance <= KILOMETRE){
+
+        if(distance <= TEST && distance > 0){
             Intent stopSelf = new Intent(this, LocationService.class);
             stopSelf.setAction(Constants.ACTION.STOPFOREGROUND_ACTION);
             PendingIntent pStopSelf = PendingIntent.getService(this, 0, stopSelf, PendingIntent.FLAG_CANCEL_CURRENT);
             builder.addAction(R.drawable.cast_ic_notification_stop_live_stream, STOP_MESSAGE, pStopSelf);
-
+            toast("User Location: " + mLastLocation.getLatitude() + "," +mLastLocation.getLongitude() +" , " + "Destination: " + mDestination.getLatitude() + "," +mDestination.getLongitude() + "Distance: " + distance());
             Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            builder.setSmallIcon(R.drawable.ic_alarm_arrived);
             builder.setSound(uri);
-            builder.setContentText(ARRIVAL_MESSAGE);
+            builder.setContentText(ARRIVAL_MESSAGE + "Distance : "+ distance + "m");
             int rgbaColour = Color.argb(255, 183, 3, 1);
             builder.setLights(rgbaColour, 2000, 1000);
         } else {
-            saveServiceAlarm();
+            setServiceAlarmPreferenceTrue();
+            builder.setSmallIcon(R.drawable.ic_not_arrived);
             builder.setContentText("Distance : "+ distance + "m");
             builder.setOngoing(true);
         }
-        Notification notification = builder.build();
-        return notification;
+        return builder.build();
     }
 
-    private void saveServiceAlarm() {
+    private void setServiceAlarmPreferenceTrue() {
         SharedPreferences.Editor settingsEditor = settings.edit();
         settingsEditor.putBoolean(AlARM_SERVICE, true);
         settingsEditor.apply();

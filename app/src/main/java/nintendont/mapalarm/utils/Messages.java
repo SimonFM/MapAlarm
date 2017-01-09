@@ -13,7 +13,7 @@ public class Messages {
     public static final String YOUR_DESTINATION = "Your Destination";
     public static final String TITLE = "Map Alarm";
     public static final String STOP_MESSAGE = "Stop";
-    public static final String ARRIVAL_MESSAGE = "You've Arrived!";
+    public static final String ARRIVAL_MESSAGE = "You're Close! ";
 
     //log messages
     public static final String TAG = "MapAlarm";

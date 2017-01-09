@@ -10,6 +10,7 @@ import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -37,6 +38,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -52,6 +55,7 @@ import static nintendont.mapalarm.utils.Constants.ALARM_THRESHOLD;
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SET;
 import static nintendont.mapalarm.utils.Constants.DEFAULT_ZOOM;
+import static nintendont.mapalarm.utils.Constants.DESTINATION_MARKER_COLOUR;
 import static nintendont.mapalarm.utils.Constants.FIVE_SECONDS;
 import static nintendont.mapalarm.utils.Constants.HALF_MINUTE;
 import static nintendont.mapalarm.utils.Constants.KILOMETRE;
@@ -89,7 +93,6 @@ public class MapsActivity extends FragmentActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        checkLocationPermission();
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
@@ -146,6 +149,7 @@ public class MapsActivity extends FragmentActivity implements
     @Override
     protected void onResume(){
         super.onResume();
+        checkLocationPermission();
         recoverLastUserLocation();
 //        boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
         if(alarmSet){// && alarmServiceSet){
@@ -243,7 +247,16 @@ public class MapsActivity extends FragmentActivity implements
         if(userSelection != null){
             userSelection.remove();
         }
-        userSelection = mMap.addMarker(new MarkerOptions().position(desiredPosition).title(YOUR_DESTINATION));
+        userSelection = mMap.addMarker(new MarkerOptions()
+                                            .position(desiredPosition)
+                                            .title(YOUR_DESTINATION)
+                                            .icon(getMarkerIcon(DESTINATION_MARKER_COLOUR)));
+    }
+
+    public BitmapDescriptor getMarkerIcon(String color) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(Color.parseColor(color), hsv);
+        return BitmapDescriptorFactory.defaultMarker(hsv[0]);
     }
 
     private void enableAlarm(LatLng desiredPosition) {
@@ -298,6 +311,19 @@ public class MapsActivity extends FragmentActivity implements
         return intent;
     }
 
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(HALF_MINUTE);
+        mLocationRequest.setFastestInterval(FIVE_SECONDS);
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+        locationChecker(MapsActivity.this);
+    }
+
     public boolean checkLocationPermission(){
         if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -313,19 +339,6 @@ public class MapsActivity extends FragmentActivity implements
             }
         }
         return false;
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(HALF_MINUTE);
-        mLocationRequest.setFastestInterval(FIVE_SECONDS);
-
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-        }
-        locationChecker(MapsActivity.this);
     }
 
     /**

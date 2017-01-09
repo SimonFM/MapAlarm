@@ -20,6 +20,7 @@ public class Constants {
 
     //Values
     public static final int KILOMETRE = 1000;
+    public static final int TEST = 500;
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 2711;
     public static final int DEFAULT_ZOOM = 14;
     public static final int ONE_SECOND = 1000;
@@ -28,6 +29,10 @@ public class Constants {
     public static final int ALARM_THRESHOLD = 50;
     public static final int ALARMBAR_ON = 75;
     public static final int ALARMBAR_OFF = 0;
+
+    //Colours
+    public static final String DESTINATION_MARKER_COLOUR = "#BCD0F2";
+
 
     public interface ACTION {
         String STARTFOREGROUND_ACTION = "nintendont.foregroundservice.action.startforeground";
