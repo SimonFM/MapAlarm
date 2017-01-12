@@ -11,6 +11,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.location.Location;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -113,7 +114,7 @@ public class MapsActivity extends FragmentActivity implements
                     stopService(serviceIntent);// stop current service
                     enableAlarm(desiredPosition); // start alarm receiver
                     toast("Alarm On!");
-                    seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
+                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_on));
                 } else if(alarmOff(progress)){
                     cancelAlarm(); // stop alarm receiver
                     Intent serviceIntent = makeServiceIntent(desiredPosition);
@@ -121,7 +122,7 @@ public class MapsActivity extends FragmentActivity implements
                     removeUserMarker();
                     deleteSharedPreferences();
                     toast("Alarm Off!");
-                    seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
+                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_off));
                 }
             }
 
@@ -153,10 +154,10 @@ public class MapsActivity extends FragmentActivity implements
         recoverLastUserLocation();
 //        boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
         if(alarmSet){// && alarmServiceSet){
-            seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack_light));
+            seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_on));
             seekBar.setProgress(ALARMBAR_ON);
         } else {
-            seekBar.setThumb(getResources().getDrawable(R.drawable.ic_audiotrack));
+            seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_off));
             seekBar.setProgress(ALARMBAR_OFF);
         }
     }

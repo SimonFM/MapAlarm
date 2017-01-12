@@ -33,7 +33,7 @@
             android:clickable="false"
             android:max="100"
             android:progressDrawable="@android:color/transparent"
-            android:thumb="@drawable/ic_audiotrack"
+            android:thumb="@drawable/thumb_image_off"
             android:layout_centerVertical="true"
             android:layout_marginLeft="50dp"
             android:layout_marginRight="50dp" />
