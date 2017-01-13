@@ -7,11 +7,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.graphics.PorterDuff;
 import android.location.Location;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -20,7 +17,9 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -46,6 +45,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import nintendont.mapalarm.R;
+import nintendont.mapalarm.tutorial.Tutorial;
 import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.services.LocationService;
 import nintendont.mapalarm.utils.Constants;
@@ -53,17 +53,13 @@ import nintendont.mapalarm.utils.Constants;
 import static nintendont.mapalarm.utils.Constants.ALARMBAR_OFF;
 import static nintendont.mapalarm.utils.Constants.ALARMBAR_ON;
 import static nintendont.mapalarm.utils.Constants.ALARM_THRESHOLD;
-import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
-import static nintendont.mapalarm.utils.Constants.AlARM_SET;
 import static nintendont.mapalarm.utils.Constants.DEFAULT_ZOOM;
 import static nintendont.mapalarm.utils.Constants.DESTINATION_MARKER_COLOUR;
 import static nintendont.mapalarm.utils.Constants.FIVE_SECONDS;
 import static nintendont.mapalarm.utils.Constants.HALF_MINUTE;
 import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE;
-import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
-import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.MY_PERMISSIONS_REQUEST_LOCATION;
 import static nintendont.mapalarm.utils.Constants.ONE_SECOND;
 import static nintendont.mapalarm.utils.Messages.NO_DESTINATION_ERROR;
@@ -80,6 +76,7 @@ public class MapsActivity extends FragmentActivity implements
     private boolean alarmSet;
 
     private GoogleMap mMap;
+    private SupportMapFragment mapFragment;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
@@ -88,51 +85,17 @@ public class MapsActivity extends FragmentActivity implements
     private AlarmManager alarmManager;
     private SeekBar seekBar;
     private NotificationManager nMgr;
-    private SharedPreferences settings;
+    private AppSettings appSettings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+        mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         nMgr = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        settings = this.getSharedPreferences(APP_PACKAGE_REFERENCE, Context.MODE_PRIVATE);
+        appSettings = new AppSettings(this);
         setupAlarmSwitch();
-    }
-
-    private void setupAlarmSwitch() {
-        seekBar = (SeekBar) findViewById(R.id.seek_bar);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                int progress = seekBar.getProgress();
-                //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
-                if (alarmOn(progress)) {
-                    cancelAlarm(); // stop alarm receiver
-                    Intent serviceIntent = makeServiceIntent(desiredPosition);
-                    stopService(serviceIntent);// stop current service
-                    enableAlarm(desiredPosition); // start alarm receiver
-                    toast("Alarm On!");
-                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_on));
-                } else if(alarmOff(progress)){
-                    cancelAlarm(); // stop alarm receiver
-                    Intent serviceIntent = makeServiceIntent(desiredPosition);
-                    stopService(serviceIntent);// stop current service
-                    removeUserMarker();
-                    deleteSharedPreferences();
-                    toast("Alarm Off!");
-                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_off));
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {}
-
-        });
     }
 
     @Override
@@ -141,7 +104,7 @@ public class MapsActivity extends FragmentActivity implements
         //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
         // if there's an alarm set. Save position, otherwise remove user preferences
         if(alarmSet){// && !alarmServiceSet) {
-            saveUserSelection();
+            appSettings.saveUserSelection(desiredPosition, alarmSet);
         } else {
             removeUserMarker();
         }
@@ -151,41 +114,17 @@ public class MapsActivity extends FragmentActivity implements
     protected void onResume(){
         super.onResume();
         checkLocationPermission();
-        recoverLastUserLocation();
-//        boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
-        if(alarmSet){// && alarmServiceSet){
+        desiredPosition = appSettings.recoverLastUserLocation();
+        if(desiredPosition != null){
+            alarmSet = appSettings.recoverAlarmState();
+        }
+
+        if(alarmSet){
             seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_on));
             seekBar.setProgress(ALARMBAR_ON);
         } else {
             seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_off));
             seekBar.setProgress(ALARMBAR_OFF);
-        }
-    }
-
-    // save last location to memory
-    private void saveUserSelection() {
-        Editor settingsEditor = settings.edit();
-        //boolean alarmWasActivated = settings.getBoolean(ALARM_SERVICE, false);
-        if (alarmSet){
-            settingsEditor.putBoolean(AlARM_SET, true);
-            settingsEditor.putBoolean(ALARM_SERVICE, false);
-            String lat = Double.toString(desiredPosition.latitude);
-            String lon = Double.toString(desiredPosition.longitude);
-            settingsEditor.putString(LONGITUDE_KEY, lon);
-            settingsEditor.putString(LATITUDE_KEY, lat);
-        }
-        settingsEditor.apply();
-    }
-
-    private void recoverLastUserLocation() {
-        String savedLat = settings.getString(LATITUDE_KEY, "");
-        String savedLon = settings.getString(LONGITUDE_KEY, "");
-
-        if(!savedLat.isEmpty() && !savedLon.isEmpty()){
-            double lat = Double.parseDouble(savedLat);
-            double lon = Double.parseDouble(savedLon);
-            desiredPosition = new LatLng(lat, lon);
-            alarmSet = settings.getBoolean(AlARM_SET, false);
         }
     }
 
@@ -216,6 +155,98 @@ public class MapsActivity extends FragmentActivity implements
         zoomTo(location);
     }
 
+    @Override
+    public void onMapLongClick(LatLng desiredPosition) {
+        addUserDestinationToMap(desiredPosition);
+        this.desiredPosition = desiredPosition;
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        mLocationRequest = LocationRequest.create();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(HALF_MINUTE);
+        mLocationRequest.setFastestInterval(FIVE_SECONDS);
+
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+        }
+        locationChecker(MapsActivity.this);
+        runTutorials();
+    }
+
+    private void runTutorials(){
+        TextView seekbarTarget = makeSeekbarTarget();
+        TextView mapTarget = makeMapTarget();
+
+        Tutorial tutorial = new Tutorial(MapsActivity.this);
+        tutorial.makeMapTutorial(mapTarget);
+        tutorial.makeAlarmTutorial(seekbarTarget);
+        tutorial.show();
+    }
+
+    @NonNull
+    private TextView makeMapTarget() {
+        TextView mapView = new TextView(this);
+        int w = mapFragment.getView().getWidth() / 2;
+        int h = mapFragment.getView().getHeight() / 2;
+
+        mapView.setWidth(w);
+        mapView.setHeight(h);
+        mapView.setX(w / 2);
+        mapView.setY(h / 2);
+        RelativeLayout rl = (RelativeLayout) this.findViewById(R.id.map_relative_layout);
+        rl.addView(mapView);
+        return mapView;
+    }
+
+    @NonNull
+    private TextView makeSeekbarTarget() {
+        TextView view = new TextView(this);
+
+        view.setWidth(seekBar.getWidth() * 3);
+        view.setHeight(seekBar.getHeight() / 2);
+        view.setX(seekBar.getX() - (seekBar.getWidth() / 2));
+        view.setY(seekBar.getY());
+        RelativeLayout rl = (RelativeLayout) this.findViewById(R.id.seekbar_layout);
+        rl.addView(view);
+        return view;
+    }
+
+    private void setupAlarmSwitch() {
+        seekBar = (SeekBar) findViewById(R.id.seek_bar);
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int progress = seekBar.getProgress();
+                //boolean alarmServiceSet = settings.getBoolean(ALARM_SERVICE, false);
+                if (alarmOn(progress)) {
+                    cancelAlarm(); // stop alarm receiver
+                    Intent serviceIntent = makeServiceIntent(desiredPosition);
+                    stopService(serviceIntent);// stop current service
+                    enableAlarm(desiredPosition); // start alarm receiver
+                    toast("Alarm On!");
+                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_on));
+                } else if(alarmOff(progress)){
+                    cancelAlarm(); // stop alarm receiver
+                    Intent serviceIntent = makeServiceIntent(desiredPosition);
+                    stopService(serviceIntent);// stop current service
+                    removeUserMarker();
+                    appSettings.deleteSharedPreferences();
+                    toast("Alarm Off!");
+                    seekBar.setThumb(ContextCompat.getDrawable(getApplicationContext(), R.drawable.thumb_image_off));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {}
+
+        });
+    }
+
     private void zoomTo(Location myLocation){
         if(myLocation != null){
             mLastLocation = myLocation;
@@ -236,12 +267,6 @@ public class MapsActivity extends FragmentActivity implements
                 .addApi(LocationServices.API)
                 .build();
         mGoogleApiClient.connect();
-    }
-
-    @Override
-    public void onMapLongClick(LatLng desiredPosition) {
-        addUserDestinationToMap(desiredPosition);
-        this.desiredPosition = desiredPosition;
     }
 
     private void addUserDestinationToMap(LatLng desiredPosition) {
@@ -310,19 +335,6 @@ public class MapsActivity extends FragmentActivity implements
         extras.putDouble(LONGITUDE, lon);
         intent.putExtras(extras);
         return intent;
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(HALF_MINUTE);
-        mLocationRequest.setFastestInterval(FIVE_SECONDS);
-
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-        }
-        locationChecker(MapsActivity.this);
     }
 
     public boolean checkLocationPermission(){
@@ -411,14 +423,6 @@ public class MapsActivity extends FragmentActivity implements
             seekBar.setProgress(ALARMBAR_OFF);
         }
         return withinRange;
-    }
-
-    private void deleteSharedPreferences() {
-        Editor settingsEditor = settings.edit();
-        settingsEditor.remove(LONGITUDE_KEY);
-        settingsEditor.remove(LATITUDE_KEY);
-        settingsEditor.putBoolean(AlARM_SET, false);
-        settingsEditor.apply();
     }
 
     @Override

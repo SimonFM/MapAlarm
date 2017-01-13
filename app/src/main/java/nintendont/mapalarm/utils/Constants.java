@@ -1,5 +1,7 @@
 package nintendont.mapalarm.utils;
 
+import android.graphics.Color;
+
 /**
  * Created by simon on 28/12/2016.
  */
@@ -32,6 +34,16 @@ public class Constants {
 
     //Colours
     public static final String DESTINATION_MARKER_COLOUR = "#BCD0F2";
+
+    //Tutorial things
+    //colours
+    public static final int RED_HEADING_COLOUR = Color.parseColor("#eb273f");
+    public static final int CONTENT_COLOUR = Color.parseColor("#ffffff");
+    public static final int MASK_COLOUR = Color.parseColor("#dc000000");
+
+    //keys
+    public static final String TURNING_ON_ALARM_TUTORIAL_KEY = "TurningOnAlarmTutorial1";
+    public static final String MAP_TUTORIAL_KEY = "MapTutorial1";
 
 
     public interface ACTION {
