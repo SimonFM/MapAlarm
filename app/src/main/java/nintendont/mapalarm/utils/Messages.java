@@ -24,7 +24,11 @@ public class Messages {
 
     //SeekBar Things
     public static final String SETTING_AN_ALARM_HEADING = "Step 2";
-    public static final String SETTING_ALARM_CONTENT = "Swipe right to enable \nSwipe left to cancel";
+    public static final String SETTING_ALARM_CONTENT = "Swipe right and left to turn the alarm on and off";
+
+    //Final Things
+    public static final String FINAL_HEADING = "Step 3";
+    public static final String FINAL_CONTENT = "Sit back and relax!";
 
 
     //log messages

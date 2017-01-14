@@ -42,8 +42,10 @@ public class Constants {
     public static final int MASK_COLOUR = Color.parseColor("#dc000000");
 
     //keys
-    public static final String TURNING_ON_ALARM_TUTORIAL_KEY = "TurningOnAlarmTutorial1";
-    public static final String MAP_TUTORIAL_KEY = "MapTutorial1";
+    public static final String TURNING_ON_ALARM_TUTORIAL_KEY = "TurningOnAlarmTutorial";
+    public static final String MAP_TUTORIAL_KEY = "MapTutorial";
+    public static final String FINAL_TUTORIAL_KEY = "FinalTutorial";
+
 
 
     public interface ACTION {

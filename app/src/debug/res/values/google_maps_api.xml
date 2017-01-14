@@ -4,5 +4,9 @@
     You can also add your credentials to an existing key, using this line:
     A9:E2:34:6C:FD:87:65:7E:A2:82:64:33:FF:61:57:18:89:DB:46:78;nintendont.mapalarm
     -->
+    <!-- Debug version -->
     <string name="google_maps_key" templateMergeStrategy="preserve" translatable="false"> AIzaSyDCOcpUXkd8U_DZajd5vowmlJRaM5S-Jq0 </string>
+
+    <!-- Production -->
+    <!--<string name="google_maps_key" templateMergeStrategy="preserve" translatable="false"> AIzaSyBx2iSWJd5DMzOVtX3cNW8DmjqUuKtXztg </string>-->
 </resources>
