@@ -46,12 +46,12 @@ public class Tutorial {
 
     public void makeAlarmTutorial(View target) {
         SpotlightView.Builder tempAlarm = makeTutorial(SETTING_AN_ALARM_HEADING, SETTING_ALARM_CONTENT, TURNING_ON_ALARM_TUTORIAL_KEY);
-        tempAlarm.setListener(new SpotlightListener() {
-            @Override
-            public void onUserClicked(String s) {
-                finalTutorial.show();
-            }
-        });
+//        tempAlarm.setListener(new SpotlightListener() {
+//            @Override
+//            public void onUserClicked(String s) {
+//                finalTutorial.show();
+//            }
+//        });
         tempAlarm.target(target);
         this.alarm = tempAlarm;
     }
