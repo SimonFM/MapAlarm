@@ -135,6 +135,7 @@ public class MapsActivity extends FragmentActivity implements
         final TextView textView = (TextView) optionsDialogs.findViewById(R.id.level_txt);
         int distance = appSettings.recoverUserDistance();
         textView.setText("Distance: " + distance + " m");
+        textView.setTextSize(20);
 
         final SeekBar distanceSeekBar = (SeekBar) optionsDialogs.findViewById(R.id.level_seek);
         final Button button = (Button) optionsDialogs.findViewById(R.id.level_ok);
@@ -489,7 +490,8 @@ public class MapsActivity extends FragmentActivity implements
         if(mLastLocation != null && desiredPosition != null){
             Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), desiredPosition.latitude, desiredPosition.longitude, results);
         } else {
-            toast(NO_DESTINATION_ERROR);
+            int distance = appSettings.recoverUserDistance();
+            toast(NO_DESTINATION_ERROR.replace("$", distance+ " m"));
         }
         boolean withinRange = results[0] > KILOMETRE;
         if(!withinRange){
