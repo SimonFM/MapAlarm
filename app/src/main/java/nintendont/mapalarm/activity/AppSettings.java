@@ -9,8 +9,10 @@ import com.google.android.gms.maps.model.LatLng;
 import static android.content.Context.ALARM_SERVICE;
 import static nintendont.mapalarm.utils.Constants.APP_PACKAGE_REFERENCE;
 import static nintendont.mapalarm.utils.Constants.AlARM_SET;
+import static nintendont.mapalarm.utils.Constants.KILOMETRE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
+import static nintendont.mapalarm.utils.Constants.RADIUS;
 
 /**
  * Created by simon on 13/01/2017.
@@ -21,6 +23,12 @@ public class AppSettings {
 
     public AppSettings(Context context){
         settings = context.getSharedPreferences(APP_PACKAGE_REFERENCE, Context.MODE_PRIVATE);
+    }
+
+    public void saveUserDistance(int distance){
+        SharedPreferences.Editor settingsEditor = settings.edit();
+        settingsEditor.putInt(RADIUS, distance);
+        settingsEditor.apply();
     }
 
     // save last location to memory
@@ -48,6 +56,11 @@ public class AppSettings {
             desiredPosition = new LatLng(lat, lon);
         }
         return desiredPosition;
+    }
+
+    public int recoverUserDistance(){
+        int distance = settings.getInt(RADIUS, KILOMETRE);
+        return distance;
     }
 
     public boolean recoverAlarmState(){

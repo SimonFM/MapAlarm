@@ -2,6 +2,7 @@ package nintendont.mapalarm.activity;
 
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.Dialog;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -9,6 +10,7 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.location.Location;
 import android.os.Build;
 import android.support.annotation.NonNull;
@@ -17,6 +19,12 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -98,6 +106,72 @@ public class MapsActivity extends FragmentActivity implements
         setupAlarmSwitch();
     }
 
+    private void setupOptionsButton() {
+        final Dialog optionsDialogs = makeOptionsDialog();
+        Button optionsButton = (Button) findViewById(R.id.optionsButton);
+        optionsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                optionsDialogs.show();
+            }
+        });
+    }
+
+    @NonNull
+    private Dialog makeOptionsDialog() {
+        final Dialog optionsDialogs = new Dialog(this);
+
+        // retrieve display dimensions
+        Rect displayRectangle = new Rect();
+        Window window = this.getWindow();
+        window.getDecorView().getWindowVisibleDisplayFrame(displayRectangle);
+
+        // inflate and adjust layout
+        LayoutInflater inflater = (LayoutInflater) this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        View layout = inflater.inflate(R.layout.radius_settings, null);
+        layout.setMinimumWidth((displayRectangle.width() )); //* 0.2f
+        layout.setMinimumHeight((int)(displayRectangle.height() * 0.2f));
+        optionsDialogs.setContentView(layout);
+        final TextView textView = (TextView) optionsDialogs.findViewById(R.id.level_txt);
+        int distance = appSettings.recoverUserDistance();
+        textView.setText("Distance: " + distance + " m");
+
+        final SeekBar distanceSeekBar = (SeekBar) optionsDialogs.findViewById(R.id.level_seek);
+        final Button button = (Button) optionsDialogs.findViewById(R.id.level_ok);
+        distanceSeekBar.setMax(KILOMETRE * 10);
+        distanceSeekBar.setProgress(distance);
+        distanceSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                //add code here
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                //add code here
+            }
+
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+
+                String newText = "Distance: " + progress + " m";
+                textView.setText(newText);
+            }
+        });
+
+        button.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                //respond to level
+                int chosenLevel = distanceSeekBar.getProgress();
+                appSettings.saveUserDistance(chosenLevel);
+                optionsDialogs.dismiss();
+            }
+        });
+
+        return optionsDialogs;
+    }
+
     @Override
     protected void onPause(){
         super.onPause();
@@ -114,6 +188,7 @@ public class MapsActivity extends FragmentActivity implements
     protected void onResume(){
         super.onResume();
         checkLocationPermission();
+        setupOptionsButton();
         desiredPosition = appSettings.recoverLastUserLocation();
         if(desiredPosition != null){
             alarmSet = appSettings.recoverAlarmState();

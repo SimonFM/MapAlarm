@@ -38,6 +38,7 @@ import static nintendont.mapalarm.utils.Constants.LATITUDE;
 import static nintendont.mapalarm.utils.Constants.LATITUDE_KEY;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE;
 import static nintendont.mapalarm.utils.Constants.LONGITUDE_KEY;
+import static nintendont.mapalarm.utils.Constants.RADIUS;
 import static nintendont.mapalarm.utils.Constants.TEST;
 import static nintendont.mapalarm.utils.Messages.ARRIVAL_MESSAGE;
 import static nintendont.mapalarm.utils.Messages.STOP_MESSAGE;
@@ -94,8 +95,9 @@ public class LocationService extends Service {
             //toast("Starting Service");
             float[] results = distance();
             float distance = results[0];
+            int radius = settings.getInt(RADIUS, KILOMETRE);
 
-            if(distance >= TEST && distance > 0 && distance != 0){
+            if(distance >= radius && distance > 0 && distance != 0){
                 Notification notification = getNotification(distance);
                 if(notification.sound == null){
                     startForeground(Constants.NOTIFICATION_ID.FOREGROUND_SERVICE, notification);
@@ -108,9 +110,6 @@ public class LocationService extends Service {
                     this.stopSelf();
                 }
             }
-
-
-
         } else if(action.equals(Constants.ACTION.STOPFOREGROUND_ACTION)){
             stopForeground(true);
             this.stopSelf();

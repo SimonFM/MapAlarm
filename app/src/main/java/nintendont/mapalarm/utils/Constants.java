@@ -15,6 +15,7 @@ public class Constants {
     public static final String LONGITUDE_KEY = LOCATION_KEY.concat(".latitude.key");
     public static final String AlARM_SET = APP_PACKAGE_REFERENCE.concat(".alarm.value");
     public static final String AlARM_SERVICE = APP_PACKAGE_REFERENCE.concat(".service.alarm.value");
+    public static final String RADIUS = APP_PACKAGE_REFERENCE.concat(".distance.radius");
 
     //Broadcast Receiver Intent things
     public static final String LATITUDE = LOCATION_KEY.concat(".latitude");
