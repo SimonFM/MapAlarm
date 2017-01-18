@@ -490,12 +490,13 @@ public class MapsActivity extends FragmentActivity implements
         if(mLastLocation != null && desiredPosition != null){
             Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), desiredPosition.latitude, desiredPosition.longitude, results);
         } else {
-            int distance = appSettings.recoverUserDistance();
-            toast(NO_DESTINATION_ERROR.replace("$", distance+ " m"));
+            toast(NO_DESTINATION_ERROR);
         }
         boolean withinRange = results[0] > KILOMETRE;
         if(!withinRange){
-            toast(TOO_CLOSE_ERROR);
+            int distance = appSettings.recoverUserDistance();
+            String message = TOO_CLOSE_ERROR.replace("$", distance + " m");
+            toast(message);
             removeUserMarker();
             seekBar.setProgress(ALARMBAR_OFF);
         }

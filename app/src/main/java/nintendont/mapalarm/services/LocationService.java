@@ -27,6 +27,7 @@ import android.widget.Toast;
 import com.google.android.gms.maps.model.LatLng;
 
 import nintendont.mapalarm.R;
+import nintendont.mapalarm.activity.MapsActivity;
 import nintendont.mapalarm.receivers.LocationReceiver;
 import nintendont.mapalarm.utils.Constants;
 
@@ -153,9 +154,13 @@ public class LocationService extends Service {
 
     private Notification getNotification(float distance) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
+        Intent notificationIntent = new Intent(this, MapsActivity.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent mapIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+
         builder.setContentTitle(TITLE);
         builder.setTicker(TITLE);
-
+        builder.setContentIntent(mapIntent);
 
         if(distance <= TEST && distance > 0){
             Intent stopSelf = new Intent(this, LocationService.class);

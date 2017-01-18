@@ -7,7 +7,7 @@ package nintendont.mapalarm.utils;
 public class Messages {
     //Error Messages to User
     public static final String NO_DESTINATION_ERROR = "Select a destination by holding down on the map";
-    public static final String TOO_CLOSE_ERROR = "Select a destination further than $ away";
+    public static final String TOO_CLOSE_ERROR = "Choose a point further than $ away";
 
 
     // Messages to show to user.
